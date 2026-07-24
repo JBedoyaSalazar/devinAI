@@ -1,0 +1,19 @@
+/* Estilos complementarios a Tailwind (mínimos). */
+html { scroll-behavior: smooth; }
+
+/* Modal visible state (Tailwind toggles .hidden). */
+#category-modal:not(.hidden) { display: flex; }
+
+/* Toast visible */
+#toast.show { opacity: 1; }
+
+/* Table row hover */
+#expense-list tr:hover { background-color: rgba(99, 102, 241, 0.06); }
+
+/* Remove number input spinners for a cleaner minimalist look */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] { -moz-appearance: textfield; appearance: textfield; }

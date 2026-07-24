@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es" class="">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-i18n="app.title">Gastos personales</title>
+  <script>
+    // Set theme before paint to avoid flash.
+    try {
+      const s = JSON.parse(localStorage.getItem('gastos.settings') || '{}');
+      if (s.theme === 'dark') document.documentElement.classList.add('dark');
+      if (s.lang) document.documentElement.lang = s.lang;
+    } catch (e) {}
+    tailwind = window.tailwind || {};
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="./css/styles.css" />
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100 min-h-screen antialiased">
+  <div class="max-w-5xl mx-auto px-4 py-6">
+    <!-- Header -->
+    <header class="flex flex-wrap items-center justify-between gap-3 mb-6">
+      <h1 class="text-2xl font-semibold tracking-tight" data-i18n="app.title">Gastos personales</h1>
+      <div class="flex items-center gap-2">
+        <select id="currency-select" class="text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5" title="Moneda / Currency">
+          <option value="COP">COP $</option>
+          <option value="USD">USD $</option>
+          <option value="EUR">EUR €</option>
+          <option value="MXN">MXN $</option>
+        </select>
+        <button id="lang-toggle" class="text-sm font-medium rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-700">ES / EN</button>
+        <button id="theme-toggle" class="text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-700" title="Tema / Theme">🌙</button>
+      </div>
+    </header>
+
+    <!-- Summary cards -->
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <div class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
+        <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400" data-i18n="summary.month">Total del mes</p>
+        <p id="stat-month" class="text-xl font-semibold mt-1">—</p>
+      </div>
+      <div class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
+        <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400" data-i18n="summary.count">Movimientos</p>
+        <p id="stat-count" class="text-xl font-semibold mt-1">—</p>
+      </div>
+      <div class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
+        <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400" data-i18n="summary.avg">Promedio diario</p>
+        <p id="stat-avg" class="text-xl font-semibold mt-1">—</p>
+      </div>
+      <div class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
+        <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400" data-i18n="summary.top">Categoría top</p>
+        <p id="stat-top" class="text-xl font-semibold mt-1">—</p>
+      </div>
+    </section>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <!-- Add / edit form -->
+      <section class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-5">
+        <h2 class="text-lg font-medium mb-4" id="form-title" data-i18n="form.title">Nuevo gasto</h2>
+        <form id="expense-form" class="space-y-3" novalidate>
+          <input type="hidden" id="expense-id" />
+          <div>
+            <label class="block text-sm mb-1" for="amount" data-i18n="form.amount">Monto</label>
+            <input id="amount" type="number" step="0.01" min="0.01" inputmode="decimal"
+              class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <p class="text-xs text-red-500 mt-1 hidden" data-error="amount" data-i18n="error.amount">Ingresa un monto válido.</p>
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-sm" for="category" data-i18n="form.category">Categoría</label>
+              <button type="button" id="manage-categories" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline" data-i18n="form.manageCategories">Gestionar</button>
+            </div>
+            <select id="category" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"></select>
+            <p class="text-xs text-red-500 mt-1 hidden" data-error="category" data-i18n="error.category">Selecciona una categoría.</p>
+          </div>
+          <div>
+            <label class="block text-sm mb-1" for="date" data-i18n="form.date">Fecha</label>
+            <input id="date" type="date" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <p class="text-xs text-red-500 mt-1 hidden" data-error="date" data-i18n="error.date">Selecciona una fecha.</p>
+          </div>
+          <div>
+            <label class="block text-sm mb-1" for="note" data-i18n="form.note">Nota (opcional)</label>
+            <input id="note" type="text" maxlength="120" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div class="flex gap-2 pt-1">
+            <button type="submit" class="flex-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2" data-i18n="form.save">Guardar</button>
+            <button type="button" id="cancel-edit" class="rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2 hidden" data-i18n="form.cancel">Cancelar</button>
+          </div>
+        </form>
+
+        <div class="mt-5 pt-4 border-t border-slate-200 dark:border-slate-700 flex flex-wrap gap-2">
+          <button id="export-btn" class="text-sm rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-700" data-i18n="data.export">Exportar</button>
+          <label class="text-sm rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer">
+            <span data-i18n="data.import">Importar</span>
+            <input id="import-input" type="file" accept="application/json" class="hidden" />
+          </label>
+          <button id="clear-btn" class="text-sm rounded-lg border border-red-300 text-red-600 dark:border-red-800 dark:text-red-400 px-3 py-1.5 hover:bg-red-50 dark:hover:bg-red-900/30" data-i18n="data.clear">Borrar todo</button>
+        </div>
+      </section>
+
+      <!-- Charts -->
+      <section class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-5">
+        <h2 class="text-lg font-medium mb-4" data-i18n="charts.title">Análisis</h2>
+        <div class="mb-6">
+          <p class="text-sm text-slate-500 dark:text-slate-400 mb-2" data-i18n="charts.byCategory">Por categoría (mes actual)</p>
+          <div class="relative h-56"><canvas id="category-chart"></canvas></div>
+        </div>
+        <div>
+          <p class="text-sm text-slate-500 dark:text-slate-400 mb-2" data-i18n="charts.trend">Tendencia (últimos 6 meses)</p>
+          <div class="relative h-48"><canvas id="trend-chart"></canvas></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Filters + list -->
+    <section class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-5 mt-6">
+      <div class="flex flex-wrap items-end justify-between gap-3 mb-4">
+        <h2 class="text-lg font-medium" data-i18n="list.title">Movimientos</h2>
+        <div class="flex flex-wrap items-end gap-2">
+          <div>
+            <label class="block text-xs mb-1 text-slate-500 dark:text-slate-400" for="filter-month" data-i18n="filter.month">Mes</label>
+            <input id="filter-month" type="month" class="text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-2 py-1.5" />
+          </div>
+          <div>
+            <label class="block text-xs mb-1 text-slate-500 dark:text-slate-400" for="filter-category" data-i18n="filter.category">Categoría</label>
+            <select id="filter-category" class="text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-2 py-1.5"></select>
+          </div>
+          <div>
+            <label class="block text-xs mb-1 text-slate-500 dark:text-slate-400" for="filter-search" data-i18n="filter.search">Buscar</label>
+            <input id="filter-search" type="text" class="text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-2 py-1.5" placeholder="..." />
+          </div>
+          <button id="filter-clear" class="text-sm rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-700" data-i18n="filter.clear">Limpiar</button>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+              <th class="py-2 pr-3 font-medium" data-i18n="table.date">Fecha</th>
+              <th class="py-2 pr-3 font-medium" data-i18n="table.category">Categoría</th>
+              <th class="py-2 pr-3 font-medium" data-i18n="table.note">Nota</th>
+              <th class="py-2 pr-3 font-medium text-right" data-i18n="table.amount">Monto</th>
+              <th class="py-2 font-medium text-right" data-i18n="table.actions">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="expense-list"></tbody>
+          <tfoot>
+            <tr class="border-t border-slate-200 dark:border-slate-700 font-semibold">
+              <td class="py-2 pr-3" colspan="3" data-i18n="table.total">Total</td>
+              <td id="list-total" class="py-2 pr-3 text-right">—</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+        <p id="empty-state" class="text-center text-slate-400 py-8 hidden" data-i18n="list.empty">No hay movimientos que coincidan.</p>
+      </div>
+    </section>
+
+    <footer class="text-center text-xs text-slate-400 mt-8" data-i18n="app.footer">Los datos se guardan solo en este navegador (localStorage).</footer>
+  </div>
+
+  <!-- Category management modal -->
+  <div id="category-modal" class="fixed inset-0 bg-black/40 items-center justify-center p-4 hidden z-50">
+    <div class="bg-white dark:bg-slate-800 rounded-xl w-full max-w-md p-5 max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-medium" data-i18n="cat.title">Categorías</h3>
+        <button id="close-category-modal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl leading-none">&times;</button>
+      </div>
+      <form id="category-form" class="space-y-3 mb-4">
+        <div>
+          <label class="block text-sm mb-1" for="new-cat-name" data-i18n="cat.name">Nombre</label>
+          <input id="new-cat-name" type="text" maxlength="40" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2" placeholder="p. ej. aseo" />
+        </div>
+        <div>
+          <label class="block text-sm mb-1" for="new-cat-parent" data-i18n="cat.parent">Categoría padre (opcional)</label>
+          <select id="new-cat-parent" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2"></select>
+          <p class="text-xs text-slate-400 mt-1" data-i18n="cat.hint">Crea categorías anidadas, p. ej. casa.aseo</p>
+        </div>
+        <p class="text-xs text-red-500 hidden" data-error="category-name"></p>
+        <button type="submit" class="w-full rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2" data-i18n="cat.add">Agregar categoría</button>
+      </form>
+      <ul id="category-tree" class="space-y-1 text-sm border-t border-slate-200 dark:border-slate-700 pt-3"></ul>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-slate-800 dark:bg-slate-700 text-white text-sm px-4 py-2 rounded-lg shadow-lg opacity-0 pointer-events-none transition-opacity z-50"></div>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
