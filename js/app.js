@@ -286,6 +286,9 @@ function startEdit(id) {
   els.note.value = exp.note || '';
   els.formTitle.textContent = t('form.titleEdit');
   els.cancelEdit.classList.remove('hidden');
+  setError('amount', false);
+  setError('category', false);
+  setError('date', false);
   els.amount.focus();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
